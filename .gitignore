@@ -1,0 +1,11 @@
+﻿*.xlsm
+*.xlsx
+*.xls
+OUTPUT/
+ARCHIVOS_ENTRADA/
+_versiones_anteriores/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+Thumbs.db
