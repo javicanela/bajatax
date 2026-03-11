@@ -1,0 +1,9 @@
+﻿{
+  "xlsm_source":     "AUTOMATIZACION_v7.xlsm",
+  "xlsm_output":     "AUTOMATIZACION_v8.xlsm",
+  "vba_modules_dir": "src/vba-modules",
+  "python_dir":      "src/python",
+  "output_pdf_dir":  "OUTPUT",
+  "entrada_dir":     "ARCHIVOS_ENTRADA",
+  "version":         "8"
+}

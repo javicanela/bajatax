@@ -1,4 +1,4 @@
-Attribute VB_Name = "Bootstrap_Installer"
+﻿Attribute VB_Name = "Bootstrap_Installer"
 Option Explicit
 '===========================================================================
 ' BOOTSTRAP INSTALLER - BajaTax v4 FINAL
@@ -44,7 +44,7 @@ Sub InstalarSistema_BajaTax()
     End If
 
     ' --- 2. Ruta base de los modulos ---
-    ruta = "/Users/javieravila/Documents/AUTOMATIZACION/VBA_CODIGO/"
+    ruta = ThisWorkbook.Path & Application.PathSeparator & "src" & Application.PathSeparator & "vba-modules" & Application.PathSeparator
 
     If Dir(ruta, vbDirectory) = "" Then
         MsgBox "No se encontro la carpeta:" & vbCrLf & ruta & vbCrLf & vbCrLf & _
@@ -240,3 +240,4 @@ Private Sub ActualizarCodigoHoja(vbp As Object, nombreHoja As String, _
     End If
     On Error GoTo 0
 End Sub
+

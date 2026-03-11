@@ -1,19 +1,27 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-build_vba.py — BajaTax v4
-Crea un nuevo vbaProject.bin desde cero con todos los módulos VBA.
+build_vba.py â€” BajaTax v4
+Crea un nuevo vbaProject.bin desde cero con todos los mÃ³dulos VBA.
 No requiere Excel abierto ni permisos especiales.
 Requiere: pip install olefile oletools openpyxl
 """
 
+from pathlib import Path
+import json
+
+ROOT     = Path(__file__).parent.parent
+config   = json.loads((ROOT / "bajatax.config.json").read_text(encoding="utf-8"))
+SRC_FILE = str(ROOT / config["xlsm_source"])
+DST_FILE = str(ROOT / config["xlsm_output"])
+VBA_DIR  = str(ROOT / config["vba_modules_dir"])
 import struct, zipfile, io, os, sys, shutil
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VBA_DIR  = os.path.join(BASE_DIR, "VBA_CODIGO")
-SRC_FILE = os.path.join(BASE_DIR, "AUTOMATIZACION v2.xlsm")
-DST_FILE = os.path.join(BASE_DIR, "AUTOMATIZACION_v4_FINAL.xlsm")
+SRC_FILE = os.path.join(BASE_DIR, config["xlsm_source"])
+DST_FILE = os.path.join(BASE_DIR, config["xlsm_output"])
 
-# ── OLE2 Constants ──────────────────────────────────────────────────
+# â”€â”€ OLE2 Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 SECTOR_SIZE        = 512
 MINI_SECTOR_SIZE   = 64
 MINI_CUTOFF        = 4096
@@ -27,12 +35,12 @@ STGTY_STREAM       = 2
 STGTY_ROOT         = 5
 NOSTREAM           = 0xFFFFFFFF
 
-# ── MS-OVBA Compression (raw chunks only) ──────────────────────────
+# â”€â”€ MS-OVBA Compression (raw chunks only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def ovba_compress(source: bytes) -> bytes:
     """Compress using MS-OVBA raw chunks (uncompressed, always valid).
-    Raw chunk header format per MS-OVBA spec §2.4.2:
+    Raw chunk header format per MS-OVBA spec Â§2.4.2:
       bit15=0 (raw, CompressedChunkFlag), bits[14:12]=0b011 (signature), bits[11:0]=0xFFF (4095)
-      → 0_011_1111_1111_1111 = 0x3FFF  (little-endian: FF 3F)
+      â†’ 0_011_1111_1111_1111 = 0x3FFF  (little-endian: FF 3F)
     """
     out = bytearray([0x01])   # CompressedContainer Signature byte
     pos = 0
@@ -45,7 +53,7 @@ def ovba_compress(source: bytes) -> bytes:
         pos += 4096
     return bytes(out)
 
-# ── dir stream builder ──────────────────────────────────────────────
+# â”€â”€ dir stream builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def get_src_dir_proj_info() -> bytes:
     """
     Extrae el prefijo del dir stream de v2 (INFO + REFERENCES section),
@@ -63,7 +71,7 @@ def get_src_dir_proj_info() -> bytes:
         pos = 0
         while pos < len(raw) - 5:
             rid = struct.unpack_from('<H', raw, pos)[0]
-            if rid == 0x000F:   # PROJMODULES – stop here
+            if rid == 0x000F:   # PROJMODULES â€“ stop here
                 info_bytes = raw[:pos]
                 print(f'  dir INFO+REFS section: {len(info_bytes)} bytes (del fuente)')
                 return info_bytes
@@ -74,14 +82,14 @@ def get_src_dir_proj_info() -> bytes:
                 pos += 2 + 4 + sz
     except Exception as e:
         print(f'  AVISO get_src_dir_proj_info: {e}')
-    return None   # None → fallback to built-in info section
+    return None   # None â†’ fallback to built-in info section
 
 
 def build_dir_stream(modules, src_proj_info: bytes = None) -> bytes:
     """
     Build the MS-OVBA dir stream (uncompressed) describing all VBA modules.
 
-    src_proj_info: bytes from get_src_dir_proj_info() – the INFO+REFERENCES
+    src_proj_info: bytes from get_src_dir_proj_info() â€“ the INFO+REFERENCES
     section copied verbatim from v2.  This is CRITICAL: it contains the
     REFERENCEREGISTERED/REFERENCECONTROL records for the Excel Object Library
     and Office Library.  Without them Excel rejects the VBA project entirely.
@@ -96,10 +104,10 @@ def build_dir_stream(modules, src_proj_info: bytes = None) -> bytes:
     out = bytearray()
 
     if src_proj_info:
-        # Use v2's project info section verbatim (SYSKIND → ... → just before PROJMODULES)
+        # Use v2's project info section verbatim (SYSKIND â†’ ... â†’ just before PROJMODULES)
         out += src_proj_info
     else:
-        # Fallback: minimal project info (no library references — may not work)
+        # Fallback: minimal project info (no library references â€” may not work)
         out += vrec(0x0001, w32(0x00000003))   # SYSKIND=Mac
         out += vrec(0x0002, w32(0x00000409))   # LCID
         out += vrec(0x0014, w32(0x00000409))   # LCIDINVOKE
@@ -145,7 +153,7 @@ def build_dir_stream(modules, src_proj_info: bytes = None) -> bytes:
     out += struct.pack('<HI', 0x0010, 0)       # PROJECTTERMINATOR
     return bytes(out)
 
-# ── PROJECT stream ─────────────────────────────────────────────────
+# â”€â”€ PROJECT stream â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def build_project_stream(modules, proj_id="{12345678-ABCD-EF01-2345-6789ABCDEF01}") -> bytes:
     lines = [f'ID="{proj_id}"']
     for m in modules:
@@ -167,7 +175,7 @@ def build_project_stream(modules, proj_id="{12345678-ABCD-EF01-2345-6789ABCDEF01
     ]
     return ('\r\n'.join(lines) + '\r\n').encode('latin-1')
 
-# ── OLE2 Writer ─────────────────────────────────────────────────────
+# â”€â”€ OLE2 Writer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class OLE2Writer:
     """Minimal Compound File Binary (OLE2) writer."""
 
@@ -181,7 +189,7 @@ class OLE2Writer:
     def add_stream(self, path, data: bytes):
         self._streams[tuple(path)] = data
 
-    # ── helpers ────────────────────────────────────────────────────
+    # â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _sectors(self, data):
         """Split data into 512-byte sectors, padded."""
         sectors = []
@@ -191,7 +199,7 @@ class OLE2Writer:
         return sectors
 
     def write(self, output_path):
-        # ── 1. Flatten all entries (root, storages, streams) ───────
+        # â”€â”€ 1. Flatten all entries (root, storages, streams) â”€â”€â”€â”€â”€â”€â”€
         # We build a flat directory list:
         # [0] = root
         # [1] = VBA storage (if any)
@@ -227,7 +235,7 @@ class OLE2Writer:
         for path, data in sorted(self._streams.items()):
             all_entries.append((path[-1], STGTY_STREAM, data, list(path[:-1])))
 
-        # ── 2. Determine data placement ────────────────────────────
+        # â”€â”€ 2. Determine data placement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # Small streams (< MINI_CUTOFF) go into mini-stream
         # Large streams go into regular sectors
 
@@ -255,14 +263,14 @@ class OLE2Writer:
             info = stream_info[idx]
             if not info['large']:
                 if info['size'] == 0:
-                    info['mini_start'] = ENDOFCHAIN  # zero-byte stream → ENDOFCHAIN
+                    info['mini_start'] = ENDOFCHAIN  # zero-byte stream â†’ ENDOFCHAIN
                     continue  # don't allocate any mini-sector
                 info['mini_start'] = mini_offset // MINI_SECTOR_SIZE
                 padded_size = ((info['size'] + MINI_SECTOR_SIZE - 1) // MINI_SECTOR_SIZE) * MINI_SECTOR_SIZE
                 mini_data += info['data'] + b'\x00' * (padded_size - info['size'])
                 mini_offset += padded_size
 
-        # ── 3. Layout sectors ───────────────────────────────────────
+        # â”€â”€ 3. Layout sectors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # Sector layout: [FAT sectors] [Dir sectors] [mini-FAT sectors]
         # [mini-stream container sectors] [large stream sectors]
 
@@ -356,8 +364,8 @@ class OLE2Writer:
             for i in range(n_ms):
                 minifat[ms_start + i] = (ms_start + i + 1) if i < n_ms - 1 else ENDOFCHAIN
 
-        # ── 4. Build directory entries ─────────────────────────────
-        # Build parent_path → children mapping for tree building
+        # â”€â”€ 4. Build directory entries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Build parent_path â†’ children mapping for tree building
         from collections import defaultdict
         children_map = defaultdict(list)
         entry_path = {}
@@ -380,7 +388,7 @@ class OLE2Writer:
                 children_map[parent_idx].append(idx)
 
         def build_red_black(children):
-            """Simple: just chain siblings left→right."""
+            """Simple: just chain siblings leftâ†’right."""
             if not children:
                 return NOSTREAM, {}
             # Sort by name (uppercase) for compatibility
@@ -487,26 +495,26 @@ class OLE2Writer:
             struct.pack_into('<I', empty, 116, ENDOFCHAIN) # start
             dir_bytes += bytes(empty)
 
-        # ── 5. Build FAT sector bytes ──────────────────────────────
+        # â”€â”€ 5. Build FAT sector bytes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         fat_bytes = bytearray()
         for v in fat:
             fat_bytes += struct.pack('<I', v)
         fat_bytes = fat_bytes[:n_fat * SECTOR_SIZE]
         fat_bytes += b'\xff' * (n_fat * SECTOR_SIZE - len(fat_bytes))
 
-        # ── 6. Build mini-FAT bytes ────────────────────────────────
+        # â”€â”€ 6. Build mini-FAT bytes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         minifat_bytes = bytearray()
         for v in minifat:
             minifat_bytes += struct.pack('<I', v)
         minifat_bytes = minifat_bytes[:max(n_minifat, 1) * SECTOR_SIZE]
         minifat_bytes += b'\xff' * (max(n_minifat, 1) * SECTOR_SIZE - len(minifat_bytes))
 
-        # ── 7. Build mini-stream container ────────────────────────
+        # â”€â”€ 7. Build mini-stream container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         mini_container_bytes = bytearray(mini_data)
         target = n_mini_container * SECTOR_SIZE
         mini_container_bytes += b'\x00' * max(0, target - len(mini_container_bytes))
 
-        # ── 8. Build large stream data ────────────────────────────
+        # â”€â”€ 8. Build large stream data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         large_stream_bytes = bytearray()
         for idx in sorted(stream_info.keys()):
             info = stream_info[idx]
@@ -516,7 +524,7 @@ class OLE2Writer:
             padded_size = ((len(data) + SECTOR_SIZE - 1) // SECTOR_SIZE) * SECTOR_SIZE
             large_stream_bytes += data + b'\x00' * (padded_size - len(data))
 
-        # ── 9. Build header (512 bytes) ───────────────────────────
+        # â”€â”€ 9. Build header (512 bytes) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         header = bytearray(512)
         # Magic
         header[0:8] = b'\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1'
@@ -548,7 +556,7 @@ class OLE2Writer:
         struct.pack_into('<I', header, 68, ENDOFCHAIN)
         # Number of DIFAT sectors
         struct.pack_into('<I', header, 72, 0)
-        # DIFAT array in header (109 entries × 4 bytes)
+        # DIFAT array in header (109 entries Ã— 4 bytes)
         # First entries point to FAT sectors
         for i in range(min(n_fat, 109)):
             struct.pack_into('<I', header, 76 + i * 4, fat_start + i)
@@ -556,7 +564,7 @@ class OLE2Writer:
         for i in range(n_fat, 109):
             struct.pack_into('<I', header, 76 + i * 4, FREESECT)
 
-        # ── 10. Concatenate everything ────────────────────────────
+        # â”€â”€ 10. Concatenate everything â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # Order: header | FAT | Dir | MiniFAT | MiniStream | LargeStreams
         result  = bytes(header)
         result += bytes(fat_bytes)
@@ -570,7 +578,7 @@ class OLE2Writer:
         return output_path
 
 
-# ── Streams copiados del archivo fuente (v2) ────────────────────────
+# â”€â”€ Streams copiados del archivo fuente (v2) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _open_src_ole():
     """Abre el OleFileIO del vbaProject.bin del archivo fuente v2."""
     import zipfile as _zf, olefile as _ole, io as _io
@@ -582,18 +590,18 @@ def _open_src_ole():
 def build_vba_project_stream() -> bytes:
     """
     Retorna stub de _VBA_PROJECT (8 bytes).
-    No copiamos el p-code de v2 porque fue compilado para 14 módulos con
-    MODULE.OFFSET distintos.  Con el stub Excel recompila desde el código fuente.
+    No copiamos el p-code de v2 porque fue compilado para 14 mÃ³dulos con
+    MODULE.OFFSET distintos.  Con el stub Excel recompila desde el cÃ³digo fuente.
     """
-    print(f'  _VBA_PROJECT: stub 8 bytes (fuerza recompilación)')
+    print(f'  _VBA_PROJECT: stub 8 bytes (fuerza recompilaciÃ³n)')
     return b'\xCC\x61\xFF\xFF\x00\x00\x00\x00'
 
 
 def get_src_extra_streams() -> dict:
     """
     Copia del archivo fuente:
-    - PROJECTwm  (DEBE estar presente según MS-OVBA §2.3.4.16)
-    - __SRP_*    (caché de bytecode; Excel los regenera si no coinciden)
+    - PROJECTwm  (DEBE estar presente segÃºn MS-OVBA Â§2.3.4.16)
+    - __SRP_*    (cachÃ© de bytecode; Excel los regenera si no coinciden)
     Retorna dict: stream_name -> bytes (todos bajo VBA storage)
     """
     result = {}
@@ -636,7 +644,7 @@ def get_src_guid() -> str:
     return '{12345678-ABCD-EF01-2345-6789ABCDEF01}'
 
 
-# ── Main ────────────────────────────────────────────────────────────
+# â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def leer_bas(fname):
     path = os.path.join(VBA_DIR, fname)
     if not os.path.exists(path):
@@ -653,22 +661,22 @@ def strip_attribute_vb_name(src):
 
 def main():
     print("=" * 60)
-    print("  BajaTax v4 — Constructor OLE2 VBA (Python puro)")
+    print("  BajaTax v4 â€” Constructor OLE2 VBA (Python puro)")
     print("=" * 60)
 
-    # ── 1. Copiar base ─────────────────────────────────────────────
+    # â”€â”€ 1. Copiar base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not os.path.exists(SRC_FILE):
         print(f"ERROR: No se encuentra {SRC_FILE}"); sys.exit(1)
     shutil.copy2(SRC_FILE, DST_FILE)
-    print(f"✓ Copia creada: {os.path.basename(DST_FILE)}")
+    print(f"âœ“ Copia creada: {os.path.basename(DST_FILE)}")
 
-    # ── 2. Crear carpetas ──────────────────────────────────────────
+    # â”€â”€ 2. Crear carpetas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for d in ['IMPORTAR', 'SALIDA_PDF', 'LOGOS']:
         os.makedirs(os.path.join(BASE_DIR, d), exist_ok=True)
-    print("✓ Carpetas IMPORTAR / SALIDA_PDF / LOGOS")
+    print("âœ“ Carpetas IMPORTAR / SALIDA_PDF / LOGOS")
 
-    # ── 3. Leer módulos .bas ───────────────────────────────────────
-    print("\n► Leyendo módulos VBA...")
+    # â”€â”€ 3. Leer mÃ³dulos .bas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    print("\nâ–º Leyendo mÃ³dulos VBA...")
 
     # Standard modules: (filename, module_name, internal_name)
     # internal_name = name used in OLE2 stream
@@ -679,7 +687,7 @@ def main():
         ("04_Mod_PDF.bas",             "PDF",                   "PDF"),
         ("07_Mod_MasivoPDF.bas",       "Mod_MasivoPDF",         "Mod_MasivoPDF"),
         ("08_Mod_BuscadorCliente.bas", "Mod_BuscadorCliente",   "BuscadorCliente"),
-        ("09_Mod_ReportesCXC.bas",     "Mod_ReportesCXC",       "Mod_ReportesCXC"),
+        ("09_Mod_FormatoGlobal.bas",     "Mod_FormatoGlobal",       "Mod_FormatoGlobal"),
     ]
     # Sheet modules: (filename, module_name, stream_name)
     # IMPORTANT: module_name = codeName from sheet XML (must match for event binding)
@@ -687,12 +695,13 @@ def main():
     #   Hoja2 = OPERACIONES (sheet3.xml), Hoja5 = DIRECTORIO (sheet5.xml),
     #   Hoja10 = BUSCADOR CLIENTE (sheet6.xml)
     #   Hoja1=Soportes, Hoja6=CONFIGURACION, Hoja3=REGISTROS, Hoja4=REPORTES CXC
-    #   Hoja7=LOG ENVÍOS, Hoja8=LOG ENVIOS
+    #   Hoja7=LOG ENVÃOS, Hoja8=LOG ENVIOS
     # For document modules, name MUST = stream_name = codeName for correct binding
     hoja_mods = [
-        ("05_Hoja_OPERACIONES.bas",     "Hoja2",    "Hoja2"),
-        ("06_Hoja_DIRECTORIO.bas",      "Hoja5",    "Hoja5"),
-        ("10_Hoja_BuscadorCliente.bas", "Hoja10",   "Hoja10"),
+        ("05_Hoja_OPERACIONES.bas",     "OPERACIONES",    "OPERACIONES"),
+        ("06_Hoja_DIRECTORIO.bas",      "DIRECTORIO",    "DIRECTORIO"),
+        ("10_Hoja_BuscadorCliente.bas", "BUSCADOR CLIENTE",   "BUSCADOR CLIENTE"),
+        ("11_Hoja_REGISTROS.bas", "REGISTROS", "REGISTROS"),
         # Stubs for remaining sheets (name=codeName=stream_name)
         (None, "ThisWorkbook",  "ThisWorkbook"),
         (None, "Hoja1",         "Hoja1"),
@@ -710,14 +719,14 @@ def main():
     for fname, mod_name, stream_name in std_mods:
         src = leer_bas(fname)
         if src is None:
-            print(f"  ✗ Falta {fname}, se omite")
+            print(f"  âœ— Falta {fname}, se omite")
             continue
         # Strip Attribute VB_Name line (it's part of the module metadata, not the code)
         src_clean = src
         compressed = ovba_compress(src_clean.encode('latin-1', errors='replace'))
         module_streams[stream_name] = compressed
         modules_meta.append({'name': mod_name, 'stream_name': stream_name, 'type': 'std'})
-        print(f"  ✓ {mod_name} ({len(src)} bytes src → {len(compressed)} compressed)")
+        print(f"  âœ“ {mod_name} ({len(src)} bytes src â†’ {len(compressed)} compressed)")
 
     # Process sheet modules
     for fname, mod_name, stream_name in hoja_mods:
@@ -737,53 +746,53 @@ def main():
         module_streams[stream_name] = compressed
         modules_meta.append({'name': mod_name, 'stream_name': stream_name, 'type': 'doc'})
         if fname:
-            print(f"  ✓ Hoja CodeName={stream_name} ({len(src)} bytes)")
+            print(f"  âœ“ Hoja CodeName={stream_name} ({len(src)} bytes)")
         else:
-            print(f"  ○ Hoja CodeName={stream_name} (stub)")
+            print(f"  â—‹ Hoja CodeName={stream_name} (stub)")
 
-    # ── 4. Build dir stream ────────────────────────────────────────
-    print("\n► Construyendo dir stream...")
-    # CRITICO: copiar la sección INFO+REFS del archivo fuente v2.
+    # â”€â”€ 4. Build dir stream â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    print("\nâ–º Construyendo dir stream...")
+    # CRITICO: copiar la secciÃ³n INFO+REFS del archivo fuente v2.
     # Sin los REFERENCE records (Excel Object Library, Office Library, etc.)
-    # Excel rechaza el VBA project completo con el mensaje de reparación.
+    # Excel rechaza el VBA project completo con el mensaje de reparaciÃ³n.
     src_proj_info = get_src_dir_proj_info()
     dir_raw = build_dir_stream(modules_meta, src_proj_info=src_proj_info)
     dir_compressed = ovba_compress(dir_raw)
-    print(f"  dir: {len(dir_raw)} bytes → {len(dir_compressed)} compressed")
+    print(f"  dir: {len(dir_raw)} bytes â†’ {len(dir_compressed)} compressed")
 
-    # ── 5. Obtener streams extra del archivo fuente ────────────────
-    print("\n► Copiando streams del fuente (v2)...")
+    # â”€â”€ 5. Obtener streams extra del archivo fuente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    print("\nâ–º Copiando streams del fuente (v2)...")
     src_guid = get_src_guid()
     extra = get_src_extra_streams()
     projectwm_bytes = extra.pop('__projectwm__', b'\x00')
     srp_streams = extra   # keys = '__SRP_0', '__SRP_1', ...
     print(f"  GUID del fuente: {src_guid}")
 
-    # ── 6. Build PROJECT stream ────────────────────────────────────
+    # â”€â”€ 6. Build PROJECT stream â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     project_bytes = build_project_stream(modules_meta, proj_id=src_guid)
     print(f"  PROJECT: {len(project_bytes)} bytes")
 
-    # ── 7. Build OLE2 file ─────────────────────────────────────────
-    print("\n► Construyendo vbaProject.bin...")
+    # â”€â”€ 7. Build OLE2 file â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    print("\nâ–º Construyendo vbaProject.bin...")
     writer = OLE2Writer()
     writer.add_storage(['VBA'])
     writer.add_stream(['VBA', '_VBA_PROJECT'], build_vba_project_stream())
     writer.add_stream(['VBA', 'dir'], dir_compressed)
     for stream_name, data in module_streams.items():
         writer.add_stream(['VBA', stream_name], data)
-    # __SRP_* del fuente (caché de bytecode; Excel los regenera si son obsoletos)
+    # __SRP_* del fuente (cachÃ© de bytecode; Excel los regenera si son obsoletos)
     for srp_name, srp_data in srp_streams.items():
         writer.add_stream(['VBA', srp_name], srp_data)
     writer.add_stream(['PROJECT'], project_bytes)
-    # PROJECTwm del fuente (MS-OVBA §2.3.4.16: MUST be present)
+    # PROJECTwm del fuente (MS-OVBA Â§2.3.4.16: MUST be present)
     writer.add_stream(['PROJECTwm'], projectwm_bytes)
 
     tmp_vba = os.path.join(BASE_DIR, "_tmp_vbaProject.bin")
     writer.write(tmp_vba)
-    print(f"  ✓ vbaProject.bin temporal: {os.path.getsize(tmp_vba):,} bytes")
+    print(f"  âœ“ vbaProject.bin temporal: {os.path.getsize(tmp_vba):,} bytes")
 
-    # ── 8. Inject into destination xlsm ───────────────────────────
-    print("\n► Inyectando en xlsm...")
+    # â”€â”€ 8. Inject into destination xlsm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    print("\nâ–º Inyectando en xlsm...")
     # Read the destination xlsm, replace vbaProject.bin, write back
     with open(DST_FILE, 'rb') as f:
         dst_bytes = f.read()
@@ -803,7 +812,7 @@ def main():
     with zipfile.ZipFile(out_buf, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
         for name, data in files.items():
             if name == 'xl/vbaProject.bin':
-                # Usar DEFLATED igual que Excel (v2 también es DEFLATED)
+                # Usar DEFLATED igual que Excel (v2 tambiÃ©n es DEFLATED)
                 zout.writestr(name, data, compress_type=zipfile.ZIP_DEFLATED)
             elif name.endswith('.bin'):
                 zout.writestr(name, data, compress_type=zipfile.ZIP_STORED)
@@ -814,11 +823,11 @@ def main():
         f.write(out_buf.getvalue())
 
     os.remove(tmp_vba)
-    print(f"  ✓ {os.path.basename(DST_FILE)} actualizado")
-    print(f"    Tamaño final: {os.path.getsize(DST_FILE):,} bytes")
+    print(f"  âœ“ {os.path.basename(DST_FILE)} actualizado")
+    print(f"    TamaÃ±o final: {os.path.getsize(DST_FILE):,} bytes")
 
-    # ── 9. Verify with olefile ─────────────────────────────────────
-    print("\n► Verificando estructura OLE2...")
+    # â”€â”€ 9. Verify with olefile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    print("\nâ–º Verificando estructura OLE2...")
     try:
         import olefile
         with zipfile.ZipFile(DST_FILE, 'r') as z:
@@ -834,20 +843,21 @@ def main():
             except:
                 print(f"    {path}")
         ole.close()
-        print("\n✓ ESTRUCTURA OLE2 VÁLIDA")
+        print("\nâœ“ ESTRUCTURA OLE2 VÃLIDA")
     except Exception as e:
-        print(f"\n✗ Error en verificación: {e}")
+        print(f"\nâœ— Error en verificaciÃ³n: {e}")
         import traceback; traceback.print_exc()
 
     print("\n" + "=" * 60)
-    print("  ✓ CONSTRUCCIÓN COMPLETADA")
+    print("  âœ“ CONSTRUCCIÃ“N COMPLETADA")
     print(f"  Archivo: {os.path.basename(DST_FILE)}")
     print("=" * 60)
-    print("\nPRÓXIMOS PASOS:")
+    print("\nPRÃ“XIMOS PASOS:")
     print("1. Abre AUTOMATIZACION_v4_FINAL.xlsm en Excel")
     print("2. Habilita macros cuando Excel lo solicite")
     print("3. En DIRECTORIO ejecuta: InicializarEncabezadosDirectorio()")
-    print("4. En REPORTES CXC asigna botón → ActualizarReportesCXC")
+    print("4. En REPORTES CXC asigna botÃ³n â†’ ActualizarReportesCXC")
 
 if __name__ == '__main__':
     main()
+

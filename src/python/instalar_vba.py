@@ -1,23 +1,31 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-instalar_vba.py — BajaTax v4 FINAL
-Instala todos los módulos VBA en una copia del archivo v2.xlsm
+instalar_vba.py â€” BajaTax v4 FINAL
+Instala todos los mÃ³dulos VBA en una copia del archivo v2.xlsm
 Requiere: pip install xlwings openpyxl
 Ejecutar con Excel cerrado (o al menos el archivo destino cerrado).
 """
 
+from pathlib import Path
+import json
+
+ROOT     = Path(__file__).parent.parent
+config   = json.loads((ROOT / "bajatax.config.json").read_text(encoding="utf-8"))
+SRC_FILE = str(ROOT / config["xlsm_source"])
+DST_FILE = str(ROOT / config["xlsm_output"])
+VBA_DIR  = str(ROOT / config["vba_modules_dir"])
 import shutil
 import os
 import sys
 import time
 import subprocess
 
-BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-VBA_DIR   = os.path.join(BASE_DIR, "VBA_CODIGO")
-SRC_FILE  = os.path.join(BASE_DIR, "AUTOMATIZACION v2.xlsm")
-DST_FILE  = os.path.join(BASE_DIR, "AUTOMATIZACION_v4_FINAL.xlsm")
+BASE_DIR = str(ROOT)
+VBA_DIR  = str(ROOT / config["vba_modules_dir"])
+SRC_FILE = str(ROOT / config["xlsm_source"])
+DST_FILE = str(ROOT / config["xlsm_output"])
 
-# Módulos estándar (.bas) con su nombre dentro de VBA
+# MÃ³dulos estÃ¡ndar (.bas) con su nombre dentro de VBA
 MODULOS_STD = [
     ("01_Mod_Sistema.bas",          "Mod_Sistema"),
     ("02_Mod_ImportarArchivos.bas", "Mod_ImportarArchivos"),
@@ -25,14 +33,15 @@ MODULOS_STD = [
     ("04_Mod_PDF.bas",              "PDF"),
     ("07_Mod_MasivoPDF.bas",        "Mod_MasivoPDF"),
     ("08_Mod_BuscadorCliente.bas",  "Mod_BuscadorCliente"),
-    ("09_Mod_ReportesCXC.bas",      "Mod_ReportesCXC"),
+    ("09_Mod_FormatoGlobal.bas",      "Mod_FormatoGlobal"),
 ]
 
-# Módulos de hoja (el nombre del atributo coincide con la hoja)
+# MÃ³dulos de hoja (el nombre del atributo coincide con la hoja)
 MODULOS_HOJA = [
     ("05_Hoja_OPERACIONES.bas",     "OPERACIONES"),
     ("06_Hoja_DIRECTORIO.bas",      "DIRECTORIO"),
     ("10_Hoja_BuscadorCliente.bas", "BUSCADOR CLIENTE"),
+    ("11_Hoja_REGISTROS.bas",       "REGISTROS"),
 ]
 
 
@@ -70,18 +79,18 @@ def instalar_con_xlwings():
     wb  = app.books.open(DST_FILE)
     vba = wb.api.VBProject.VBComponents
 
-    # ── Eliminar módulos estándar existentes ─────────────────
+    # â”€â”€ Eliminar mÃ³dulos estÃ¡ndar existentes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     nombres_a_borrar = [m[1] for m in MODULOS_STD]
     componentes = list(vba)
     for comp in componentes:
         try:
             if comp.Name in nombres_a_borrar and comp.Type == 1:  # 1=vbext_ct_StdModule
                 vba.Remove(comp)
-                log(f"  Eliminado módulo existente: {comp.Name}")
+                log(f"  Eliminado mÃ³dulo existente: {comp.Name}")
         except Exception:
             pass
 
-    # ── Instalar módulos estándar ─────────────────────────────
+    # â”€â”€ Instalar mÃ³dulos estÃ¡ndar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for bas_file, mod_name in MODULOS_STD:
         codigo = leer_bas(bas_file)
         if codigo is None:
@@ -90,11 +99,11 @@ def instalar_con_xlwings():
             nuevo = vba.Add(1)  # vbext_ct_StdModule
             nuevo.Name = mod_name
             nuevo.CodeModule.AddFromString(codigo)
-            log(f"  ✓ Módulo instalado: {mod_name}")
+            log(f"  âœ“ MÃ³dulo instalado: {mod_name}")
         except Exception as e:
-            log(f"  ✗ Error en {mod_name}: {e}")
+            log(f"  âœ— Error en {mod_name}: {e}")
 
-    # ── Instalar código de hojas ──────────────────────────────
+    # â”€â”€ Instalar cÃ³digo de hojas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for bas_file, sheet_name in MODULOS_HOJA:
         codigo = leer_bas(bas_file)
         if codigo is None:
@@ -129,33 +138,33 @@ def instalar_con_xlwings():
                         break
 
             if hoja_comp is not None:
-                # Limpiar código existente
+                # Limpiar cÃ³digo existente
                 cm = hoja_comp.CodeModule
                 if cm.CountOfLines > 0:
                     cm.DeleteLines(1, cm.CountOfLines)
-                # Eliminar la primera línea Attribute VB_Name del código de hoja
+                # Eliminar la primera lÃ­nea Attribute VB_Name del cÃ³digo de hoja
                 lineas = codigo.split("\n")
                 codigo_limpio = "\n".join([l for l in lineas if not l.startswith("Attribute VB_Name")])
                 cm.AddFromString(codigo_limpio)
-                log(f"  ✓ Código de hoja instalado: {sheet_name}")
+                log(f"  âœ“ CÃ³digo de hoja instalado: {sheet_name}")
             else:
-                log(f"  ! No se encontró la hoja '{sheet_name}' en el proyecto VBA")
+                log(f"  ! No se encontrÃ³ la hoja '{sheet_name}' en el proyecto VBA")
         except Exception as e:
-            log(f"  ✗ Error en hoja {sheet_name}: {e}")
+            log(f"  âœ— Error en hoja {sheet_name}: {e}")
 
-    # ── Guardar y cerrar ─────────────────────────────────────
+    # â”€â”€ Guardar y cerrar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     log("Guardando...")
     wb.save()
     wb.close()
     app.quit()
-    log(f"✓ Archivo guardado: {os.path.basename(DST_FILE)}")
+    log(f"âœ“ Archivo guardado: {os.path.basename(DST_FILE)}")
 
 
 def instalar_con_applescript():
     """Fallback: usar AppleScript para instalar VBA en macOS"""
-    log("Usando AppleScript como método alternativo...")
+    log("Usando AppleScript como mÃ©todo alternativo...")
 
-    # Generar script de instalación VBA interno
+    # Generar script de instalaciÃ³n VBA interno
     macro_installer = generar_macro_instalador()
 
     # Guardar el macro en un archivo temporal
@@ -169,7 +178,7 @@ def instalar_con_applescript():
         set wb to open workbook workbook file name "{DST_FILE}"
         set vbp to VBA project of wb
 
-        -- Ejecutar macro de instalación
+        -- Ejecutar macro de instalaciÃ³n
         run macro macro name "InstalarTodo" of wb
 
         save wb
@@ -180,9 +189,9 @@ def instalar_con_applescript():
     result = subprocess.run(["osascript", "-e", script],
                            capture_output=True, text=True, timeout=120)
     if result.returncode == 0:
-        log("✓ Instalación vía AppleScript completada")
+        log("âœ“ InstalaciÃ³n vÃ­a AppleScript completada")
     else:
-        log(f"✗ Error AppleScript: {result.stderr}")
+        log(f"âœ— Error AppleScript: {result.stderr}")
 
     if os.path.exists(tmp_bas):
         os.remove(tmp_bas)
@@ -206,7 +215,7 @@ def generar_macro_instalador():
         partes.append(f"    vbp.VBComponents.Import \"{ruta}\"")
         partes.append("")
 
-    partes.append("    MsgBox \"Módulos instalados correctamente.\", vbInformation, \"BajaTax\"")
+    partes.append("    MsgBox \"MÃ³dulos instalados correctamente.\", vbInformation, \"BajaTax\"")
     partes.append("End Sub")
     return "\n".join(partes)
 
@@ -225,53 +234,55 @@ def crear_carpetas_necesarias():
 
 def main():
     print("=" * 60)
-    print("  BajaTax v4 — Instalador VBA")
+    print("  BajaTax v4 â€” Instalador VBA")
     print("=" * 60)
     print()
 
-    print("► Paso 1: Crear copia del archivo base...")
+    print("â–º Paso 1: Crear copia del archivo base...")
     hacer_copia()
 
     print()
-    print("► Paso 2: Crear carpetas necesarias...")
+    print("â–º Paso 2: Crear carpetas necesarias...")
     crear_carpetas_necesarias()
 
     print()
-    print("► Paso 3: Instalar módulos VBA...")
+    print("â–º Paso 3: Instalar mÃ³dulos VBA...")
 
     try:
         instalar_con_xlwings()
         ok = True
     except Exception as e:
-        log(f"xlwings falló: {e}")
-        log("Intentando método alternativo (AppleScript)...")
+        log(f"xlwings fallÃ³: {e}")
+        log("Intentando mÃ©todo alternativo (AppleScript)...")
         try:
             instalar_con_applescript()
             ok = True
         except Exception as e2:
-            log(f"AppleScript también falló: {e2}")
+            log(f"AppleScript tambiÃ©n fallÃ³: {e2}")
             ok = False
 
     print()
     if ok:
         print("=" * 60)
-        print("  ✓ INSTALACIÓN COMPLETADA")
+        print("  âœ“ INSTALACIÃ“N COMPLETADA")
         print(f"  Archivo: {os.path.basename(DST_FILE)}")
         print("=" * 60)
         print()
-        print("PRÓXIMOS PASOS:")
+        print("PRÃ“XIMOS PASOS:")
         print("1. Abre AUTOMATIZACION_v4_FINAL.xlsm")
         print("2. Habilita macros cuando Excel lo solicite")
         print("3. En DIRECTORIO, ejecuta InicializarEncabezadosDirectorio()")
-        print("4. En REPORTES CXC, asigna botón → ActualizarReportesCXC")
-        print("5. En BUSCADOR CLIENTE, asigna botón → EjecutarBusqueda / LimpiarBuscador")
+        print("4. En REPORTES CXC, asigna botÃ³n â†’ ActualizarReportesCXC")
+        print("5. En BUSCADOR CLIENTE, asigna botÃ³n â†’ EjecutarBusqueda / LimpiarBuscador")
     else:
         print("=" * 60)
-        print("  ✗ La instalación automática falló.")
-        print("  Usa la instalación manual con los archivos .bas")
+        print("  âœ— La instalaciÃ³n automÃ¡tica fallÃ³.")
+        print("  Usa la instalaciÃ³n manual con los archivos .bas")
         print("  Ver: VBA_CODIGO/00_GUIA_INSTALACION.md")
         print("=" * 60)
 
 
 if __name__ == "__main__":
     main()
+
+
