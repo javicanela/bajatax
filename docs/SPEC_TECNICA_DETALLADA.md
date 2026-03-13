@@ -1,7 +1,7 @@
 # agent.md — BajaTax Especificación Extendida
 
-> Este archivo complementa CLAUDE.md con las especificaciones detalladas de cada módulo.
-> CLAUDE.md define QUÉ es el sistema. agent.md define CÓMO funciona cada parte.
+> Este archivo complementa GEMINI.md con las especificaciones detalladas de cada módulo.
+> GEMINI.md define QUÉ es el sistema. agent.md define CÓMO funciona cada parte.
 
 ---
 

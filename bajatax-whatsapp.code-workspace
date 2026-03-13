@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.exclude": {
+			"IMPORTAR": true,
+			"ARCHIVOS_ENTRADA": true,
+			"SALIDA_PDF": true,
+			"OUTPUT": true
+		}
+	}
+}

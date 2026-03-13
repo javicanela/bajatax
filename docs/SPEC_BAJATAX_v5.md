@@ -12,7 +12,6 @@ Automatización integral de cobranza y gestión contable para un despacho fiscal
 - Excel con macros VBA (Mac como plataforma principal)
 - Python 3 / ReportLab (generación de PDFs vía pdf_server.py)
 - Evolution API / Docker (envío de WhatsApp vía REST API local)
-- Ollama (modelos de IA locales para asistencia en desarrollo)
 
 ---
 
@@ -35,7 +34,7 @@ Automatización integral de cobranza y gestión contable para un despacho fiscal
 Archivos externos → REGISTROS → DIRECTORIO + OPERACIONES → PDF + WhatsApp → LOG ENVIOS
 ```
 
-> Detalle completo de columnas por hoja en: DOCS/estructura-datos.md y .roo/rules/05-hojas-excel.md
+> Detalle completo de columnas por hoja en: DOCS/estructura-datos.md y docs/reglas/05-hojas-excel.md
 
 ---
 

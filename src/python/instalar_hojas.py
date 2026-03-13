@@ -1,4 +1,4 @@
-﻿import xlwings as xw
+import xlwings as xw
 from pathlib import Path
 
 ROOT = Path(r"C:\Users\LENOVO\Desktop\vscode\bajatax")
@@ -27,16 +27,16 @@ for bas_file, sheet_name in hojas:
     try:
         code_name = mapa.get(sheet_name)
         if not code_name:
-            print(f"❌ Sin CodeName: '{sheet_name}'")
+            print(f"? Sin CodeName: '{sheet_name}'")
             continue
         comp = wb.api.VBProject.VBComponents(code_name)
         cm = comp.CodeModule
         if cm.CountOfLines > 0:
             cm.DeleteLines(1, cm.CountOfLines)
         cm.AddFromString(codigo_limpio)
-        print(f"✅ {sheet_name} -> {code_name}")
+        print(f"? {sheet_name} -> {code_name}")
     except Exception as e:
-        print(f"❌ {sheet_name}: {e}")
+        print(f"? {sheet_name}: {e}")
 
 wb.save()
 wb.close()

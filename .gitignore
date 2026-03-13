@@ -1,4 +1,4 @@
-﻿*.xlsm
+*.xlsm
 *.xlsx
 *.xls
 OUTPUT/
@@ -9,3 +9,4 @@ __pycache__/
 .env
 .DS_Store
 Thumbs.db
+.gemini/

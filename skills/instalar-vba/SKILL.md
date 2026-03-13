@@ -144,7 +144,7 @@ En el editor VBA (Alt+F11):
 ## Flujo completo recomendado
 
 ```
-Roo Code genera/modifica módulos .bas en src/vba-modules/
+Antigravity genera/modifica módulos .bas en src/vba-modules/
           ↓
 git add . && git commit -m "feat: módulo X actualizado"
           ↓
@@ -157,5 +157,5 @@ Abrir Excel → verificar en editor VBA
 Probar la funcionalidad en el Excel
           ↓
 Si funciona → git push
-Si falla → git diff para ver qué cambió, reportar error en Roo Code
+Si falla → git diff para ver qué cambió, reportar error a Antigravity
 ```

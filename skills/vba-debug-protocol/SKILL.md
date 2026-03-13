@@ -241,5 +241,5 @@ Si ya intentaste 3 correcciones diferentes y el bug persiste:
 6. El fix corrige la causa raíz, no solo el síntoma
 
 > Para reglas Mac/Windows: skill **cross-platform**
-> Para columnas y hojas: sección "Mapa de Columnas" en **CLAUDE.md**
+> Para columnas y hojas: sección "Mapa de Columnas" en **GEMINI.md**
 > Para loops lentos: skill **excel-performance**

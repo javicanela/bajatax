@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.exclude": {
+			"evolution-api": true,
+			"SALIDA_PDF": true,
+			"LOGS": true,
+			"OUTPUT": true
+		}
+	}
+}

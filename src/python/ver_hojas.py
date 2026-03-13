@@ -1,4 +1,4 @@
-﻿import xlwings as xw
+import xlwings as xw
 from pathlib import Path
 
 ROOT = Path(r"C:\Users\LENOVO\Desktop\vscode\bajatax")
